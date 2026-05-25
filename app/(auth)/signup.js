@@ -57,8 +57,7 @@ export default function SignupScreen() {
     switch (code) {
       case 'auth/email-already-in-use': return 'This email is already registered';
       case 'auth/invalid-email': return 'Invalid email address';
-      case 'auth/weak-password': return 'Password is too weak';
-      default: return 'Signup failed. Please try again';
+      default: return `Signup failed: ${code}`;
     }
   };
 
@@ -70,7 +69,7 @@ export default function SignupScreen() {
       />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}

@@ -8,7 +8,19 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+const MapView = ({ children, style }) => (
+  <View style={[style, { backgroundColor: '#1d2c4d', justifyContent: 'center', alignItems: 'center' }]}>
+    <Ionicons name="map" size={48} color="#4b6878" style={{ marginBottom: 10 }} />
+    <Text style={{ color: '#8ec3b9', marginBottom: 10, fontSize: 16, fontWeight: '600' }}>Map View Not Supported</Text>
+    <Text style={{ color: '#6f9ba5', fontSize: 13, textAlign: 'center', paddingHorizontal: 20 }}>
+      The live map is only available on the mobile app. You can still use the web version to manage sessions and send invites.
+    </Text>
+  </View>
+);
+const Marker = () => null;
+const Polyline = () => null;
+const Circle = () => null;
+const PROVIDER_GOOGLE = null;
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';

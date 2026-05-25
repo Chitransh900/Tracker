@@ -51,7 +51,7 @@ export default function LoginScreen() {
       case 'auth/wrong-password': return 'Incorrect password';
       case 'auth/too-many-requests': return 'Too many attempts. Try again later';
       case 'auth/invalid-credential': return 'Invalid email or password';
-      default: return 'Login failed. Please try again';
+      default: return `Login failed: ${code}`;
     }
   };
 
@@ -63,7 +63,7 @@ export default function LoginScreen() {
       />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
