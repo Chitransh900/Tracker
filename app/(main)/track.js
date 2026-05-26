@@ -5,10 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Animated,
   Platform,
 } from 'react-native';
-import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,16 +17,134 @@ import { Colors, Gradients } from '../../constants/colors';
 import { Typography, Spacing, BorderRadius } from '../../constants/theme';
 
 const { width, height } = Dimensions.get('window');
-const ASPECT_RATIO = width / height;
-const LATITUDE_DELTA = 0.005;
-const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
+const MAP_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { padding: 0; margin: 0; background-color: #0A0E1A; overflow: hidden; }
+    #map { height: 100vh; width: 100vw; }
+    .leaflet-container { background: #0A0E1A; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .leaflet-control-container { display: none; }
+    .custom-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .custom-marker-inner {
+      width: 14px;
+      height: 14px;
+      background: #3B82F6;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+      position: absolute;
+      top: 9px;
+      left: 9px;
+    }
+    .pulse {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.5);
+      animation: pulseAnim 1.5s infinite ease-out;
+    }
+    @keyframes pulseAnim {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([28.6139, 77.209], 15);
+    
+    var tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    var marker = null;
+    var accuracyCircle = null;
+    var routePolyline = null;
+
+    var customIcon = L.divIcon({
+      className: 'custom-div-icon',
+      html: "<div class='custom-marker'><div class='pulse'></div><div class='custom-marker-inner'></div></div>",
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    window.updateLocation = function(lat, lng, accuracy, shouldCenter) {
+      if (!marker) {
+        marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+        if (accuracy) {
+          accuracyCircle = L.circle([lat, lng], {
+            radius: accuracy,
+            color: '#3B82F6',
+            weight: 1,
+            fillColor: '#3B82F6',
+            fillOpacity: 0.1
+          }).addTo(map);
+        }
+        map.setView([lat, lng], 15);
+      } else {
+        marker.setLatLng([lat, lng]);
+        if (accuracyCircle) {
+          accuracyCircle.setLatLng([lat, lng]);
+          accuracyCircle.setRadius(accuracy);
+        }
+        if (shouldCenter) {
+          map.setView([lat, lng]);
+        }
+      }
+    };
+
+    window.centerMap = function() {
+      if (marker) {
+        map.setView(marker.getLatLng());
+      }
+    };
+
+    window.setMapType = function(type) {
+      if (type === 'satellite') {
+        tileLayer.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+      } else {
+        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+      }
+    };
+
+    window.drawRoute = function(pointsStr) {
+      var points = JSON.parse(pointsStr);
+      if (routePolyline) {
+        map.removeLayer(routePolyline);
+        routePolyline = null;
+      }
+      if (points && points.length > 1) {
+        var latlngs = points.map(function(p) { return [p.latitude, p.longitude]; });
+        routePolyline = L.polyline(latlngs, {color: '#8B5CF6', weight: 3}).addTo(map);
+      }
+    };
+  </script>
+</body>
+</html>
+`;
 
 export default function TrackScreen() {
   const params = useLocalSearchParams();
   const { sessionId, targetId, targetName } = params;
   const router = useRouter();
-  const mapRef = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const webViewRef = useRef(null);
 
   const [location, setLocation] = useState(null);
   const [routeHistory, setRouteHistory] = useState([]);
@@ -36,25 +153,6 @@ export default function TrackScreen() {
   const [mapType, setMapType] = useState('standard');
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Pulse animation for live marker
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 1500,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
 
   // Real-time location listener
   useEffect(() => {
@@ -69,16 +167,8 @@ export default function TrackScreen() {
           setLastUpdated(new Date());
 
           // Animate map to new position
-          if (mapRef.current && data.latitude && data.longitude) {
-            mapRef.current.animateToRegion(
-              {
-                latitude: data.latitude,
-                longitude: data.longitude,
-                latitudeDelta: LATITUDE_DELTA,
-                longitudeDelta: LONGITUDE_DELTA,
-              },
-              800
-            );
+          if (webViewRef.current && data.latitude && data.longitude) {
+            webViewRef.current.injectJavaScript(`window.updateLocation(${data.latitude}, ${data.longitude}, ${data.accuracy || 0}, false); true;`);
           }
         }
       },
@@ -104,35 +194,55 @@ export default function TrackScreen() {
           points.push({ latitude: data.latitude, longitude: data.longitude });
         }
       });
-      setRouteHistory(points.reverse());
+      const reversed = points.reverse();
+      setRouteHistory(reversed);
+      return reversed;
     } catch (err) {
       console.warn('Failed to load route history:', err);
+      return [];
     }
   };
 
   const toggleRoute = () => {
-    if (!showRoute && routeHistory.length === 0) {
-      loadRouteHistory();
+    const newShowRoute = !showRoute;
+    setShowRoute(newShowRoute);
+    if (newShowRoute) {
+      if (routeHistory.length === 0) {
+        loadRouteHistory().then((points) => {
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`window.drawRoute('${JSON.stringify(points)}'); true;`);
+          }
+        });
+      } else {
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`window.drawRoute('${JSON.stringify(routeHistory)}'); true;`);
+        }
+      }
+    } else {
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`window.drawRoute('[]'); true;`);
+      }
     }
-    setShowRoute(!showRoute);
   };
 
   const centerOnTarget = () => {
-    if (mapRef.current && location) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        },
-        600
-      );
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.centerMap(); true;`);
     }
   };
 
   const toggleMapType = () => {
-    setMapType((prev) => (prev === 'standard' ? 'satellite' : 'standard'));
+    const newType = mapType === 'standard' ? 'satellite' : 'standard';
+    setMapType(newType);
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.setMapType('${newType}'); true;`);
+    }
+  };
+
+  const handleMapLoad = () => {
+    if (location && webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.updateLocation(${location.latitude}, ${location.longitude}, ${location.accuracy || 0}, true); true;`);
+    }
   };
 
   const formatTime = (date) => {
@@ -162,86 +272,19 @@ export default function TrackScreen() {
     return 'battery-quarter';
   };
 
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 2.5],
-  });
 
-  const pulseOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.4, 0],
-  });
 
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
-        ref={mapRef}
+      <WebView
+        ref={webViewRef}
         style={styles.map}
-        mapType={mapType}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={{
-          latitude: location?.latitude || 28.6139,
-          longitude: location?.longitude || 77.209,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        }}
-        customMapStyle={darkMapStyle}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-      >
-        {/* Accuracy circle */}
-        {location && location.accuracy && (
-          <Circle
-            center={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }}
-            radius={location.accuracy}
-            fillColor="rgba(59, 130, 246, 0.08)"
-            strokeColor="rgba(59, 130, 246, 0.2)"
-            strokeWidth={1}
-          />
-        )}
-
-        {/* Route polyline */}
-        {showRoute && routeHistory.length > 1 && (
-          <Polyline
-            coordinates={routeHistory}
-            strokeColor={Colors.mapTrail}
-            strokeWidth={3}
-            lineDashPattern={[0]}
-          />
-        )}
-
-        {/* Target marker */}
-        {location && (
-          <Marker
-            coordinate={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.markerContainer}>
-              {/* Pulse ring */}
-              <Animated.View
-                style={[
-                  styles.pulseRing,
-                  {
-                    transform: [{ scale: pulseScale }],
-                    opacity: pulseOpacity,
-                  },
-                ]}
-              />
-              {/* Marker dot */}
-              <View style={styles.markerDot}>
-                <Ionicons name="navigate" size={16} color="#FFF" />
-              </View>
-            </View>
-          </Marker>
-        )}
-      </MapView>
+        source={{ html: MAP_HTML }}
+        scrollEnabled={false}
+        bounces={false}
+        onLoadEnd={handleMapLoad}
+      />
 
       {/* Top bar */}
       <View style={styles.topBar}>
