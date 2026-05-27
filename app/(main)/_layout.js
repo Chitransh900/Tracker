@@ -69,6 +69,13 @@ export default function MainLayout() {
           href: null,
         }}
       />
+      {/* Hide the geofences screen from tabs — it's accessed via navigation */}
+      <Tabs.Screen
+        name="geofences"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

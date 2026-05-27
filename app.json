@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tracker",
     "slug": "Tracker",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -38,12 +38,7 @@
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION"
-      ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyCn_GLqvXgxWRDnUD-kwEl1s39yL_smsYc"
-        }
-      }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

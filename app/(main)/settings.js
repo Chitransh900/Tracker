@@ -168,7 +168,7 @@ export default function SettingsScreen() {
         <Card variant="glass" style={styles.settingsCard}>
           <TouchableOpacity style={styles.aboutRow}>
             <Ionicons name="information-circle-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.aboutText}>Version 1.0.0</Text>
+            <Text style={styles.aboutText}>Version 1.2.1</Text>
           </TouchableOpacity>
         </Card>
 
