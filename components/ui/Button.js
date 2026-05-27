@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import { Typography, BorderRadius, Spacing } from '../../constants/theme';
 
@@ -71,19 +70,17 @@ export default function Button({
         activeOpacity={0.85}
         style={[style]}
       >
-        <LinearGradient
-          colors={isDisabled ? [Colors.textMuted, Colors.textMuted] : [Colors.primary, Colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <View
           style={[
             styles.base,
             sizeStyles[size],
             styles.primaryShadow,
             isDisabled && styles.disabled,
+            { backgroundColor: isDisabled ? Colors.surface : Colors.primary }
           ]}
         >
           {renderContent()}
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -128,11 +125,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   primaryShadow: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   secondary: {
     backgroundColor: Colors.surface,

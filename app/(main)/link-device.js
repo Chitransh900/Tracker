@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
   collection,
@@ -128,14 +127,11 @@ export default function LinkDeviceScreen() {
         {/* Invite Form */}
         <Card variant="glass" style={styles.formCard}>
           <View style={styles.formHeader}>
-            <LinearGradient
-              colors={Gradients.accent}
-              style={styles.formIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
+              style={[styles.formIcon, { backgroundColor: Colors.accent }]}
             >
               <Ionicons name="person-add" size={24} color="#FFF" />
-            </LinearGradient>
+            </View>
             <Text style={styles.formTitle}>Send Tracking Request</Text>
           </View>
 

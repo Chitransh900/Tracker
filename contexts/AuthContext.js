@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -21,6 +22,12 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        if (!firebaseUser.emailVerified) {
+          setUser(null);
+          setUserProfile(null);
+          setLoading(false);
+          return;
+        }
         setUser(firebaseUser);
         // Fetch user profile from Firestore
         try {
@@ -59,7 +66,12 @@ export function AuthProvider({ children }) {
         role: null, // 'tracker' or 'target' — set during pairing
       };
       await setDoc(doc(db, 'users', newUser.uid), profileData);
-      setUserProfile(profileData);
+      
+      // Send verification email
+      await sendEmailVerification(newUser);
+      
+      // Force sign out until verified
+      await firebaseSignOut(auth);
       
       return newUser;
     } catch (err) {
@@ -73,6 +85,12 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const { user: existingUser } = await signInWithEmailAndPassword(auth, email, password);
+      
+      if (!existingUser.emailVerified) {
+        await firebaseSignOut(auth);
+        throw new Error('Please verify your email address before logging in. Check your inbox.');
+      }
+      
       return existingUser;
     } catch (err) {
       setError(err.message);

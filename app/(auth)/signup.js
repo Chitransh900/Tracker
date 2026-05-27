@@ -7,8 +7,8 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,7 +45,11 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signUp(email.trim(), password, displayName.trim());
-      router.replace('/(main)/dashboard');
+      Alert.alert(
+        'Account Created!',
+        'We have sent a verification link to your email. Please verify your email before logging in.',
+        [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
+      );
     } catch (err) {
       setLocalError(getErrorMessage(err.code));
     } finally {
@@ -63,10 +67,7 @@ export default function SignupScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['rgba(139, 92, 246, 0.08)', 'transparent']}
-        style={styles.topGlow}
-      />
+      {/* Clean background instead of topGlow gradient */}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -88,14 +89,9 @@ export default function SignupScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoWrap}>
-              <LinearGradient
-                colors={['#8B5CF6', '#6D28D9']}
-                style={styles.logoGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Ionicons name="person-add" size={30} color="#FFF" />
-              </LinearGradient>
+              <View style={styles.logoGradient}>
+                <Ionicons name="person-add" size={32} color="#FFF" />
+              </View>
             </View>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join and start tracking safely</Text>
@@ -170,13 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   flex: { flex: 1 },
-  topGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-  },
+  // Removed topGlow
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: Spacing.xxl,
@@ -199,11 +189,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   title: {
     ...Typography.heading1,
@@ -246,7 +233,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   footerLink: {
-    ...Typography.captionMedium,
-    color: '#8B5CF6',
+    color: Colors.primary,
   },
 });

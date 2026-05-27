@@ -8,7 +8,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { collection, query, where, onSnapshot, or } from 'firebase/firestore';
@@ -91,16 +90,13 @@ export default function DashboardScreen() {
             </Text>
           </View>
           <TouchableOpacity style={styles.avatarWrap}>
-            <LinearGradient
-              colors={Gradients.primary}
-              style={styles.avatar}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
+              style={[styles.avatar, { backgroundColor: Colors.primaryDark }]}
             >
               <Text style={styles.avatarText}>
                 {getInitials(user?.displayName)}
               </Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -110,14 +106,11 @@ export default function DashboardScreen() {
             style={styles.quickAction}
             onPress={() => router.push('/(main)/link-device')}
           >
-            <LinearGradient
-              colors={Gradients.accent}
-              style={styles.quickActionIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
+              style={[styles.quickActionIcon, { backgroundColor: Colors.accent }]}
             >
               <Ionicons name="add" size={24} color="#FFF" />
-            </LinearGradient>
+            </View>
             <Text style={styles.quickActionText}>Link Device</Text>
           </TouchableOpacity>
 
@@ -125,14 +118,11 @@ export default function DashboardScreen() {
             style={styles.quickAction}
             onPress={() => router.push('/(main)/sessions')}
           >
-            <LinearGradient
-              colors={Gradients.success}
-              style={styles.quickActionIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
+              style={[styles.quickActionIcon, { backgroundColor: Colors.success }]}
             >
               <Ionicons name="list" size={24} color="#FFF" />
-            </LinearGradient>
+            </View>
             <Text style={styles.quickActionText}>Sessions</Text>
           </TouchableOpacity>
         </View>

@@ -9,20 +9,24 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import LocationService from '../../services/LocationService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import { Colors, Gradients } from '../../constants/colors';
 import { Typography, Spacing, BorderRadius } from '../../constants/theme';
 
 export default function SettingsScreen() {
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const router = useRouter();
   const [trackingEnabled, setTrackingEnabled] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState(userProfile?.phoneNumber || '');
+  const [savingPhone, setSavingPhone] = useState(false);
   const [permissions, setPermissions] = useState({
     foreground: false,
     background: false,
@@ -35,6 +39,20 @@ export default function SettingsScreen() {
   const checkPermissions = async () => {
     const status = await LocationService.getPermissionStatus();
     setPermissions(status);
+  };
+
+  const handleSavePhone = async () => {
+    if (!phoneNumber.trim()) return;
+    setSavingPhone(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { phoneNumber: phoneNumber.trim() });
+      Alert.alert('Success', 'Phone number saved successfully.');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save phone number.');
+    } finally {
+      setSavingPhone(false);
+    }
   };
 
   const toggleTracking = async (value) => {
@@ -104,18 +122,40 @@ export default function SettingsScreen() {
         {/* Profile Section */}
         <Card variant="glass" style={styles.profileCard}>
           <View style={styles.profileRow}>
-            <LinearGradient
-              colors={Gradients.primary}
-              style={styles.avatar}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
+              style={[styles.avatar, { backgroundColor: Colors.primaryDark }]}
             >
               <Text style={styles.avatarText}>{getInitials(user?.displayName)}</Text>
-            </LinearGradient>
+            </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user?.displayName || 'User'}</Text>
               <Text style={styles.profileEmail}>{user?.email}</Text>
             </View>
+          </View>
+        </Card>
+
+        {/* Contact Info Section */}
+        <Text style={styles.sectionTitle}>Contact Info</Text>
+        <Card variant="glass" style={styles.settingsCard}>
+          <View style={styles.settingRow}>
+            <View style={{ flex: 1, marginRight: Spacing.md }}>
+              <Input
+                label="Phone Number"
+                placeholder="+1 234 567 8900"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                icon="call-outline"
+                style={{ marginBottom: 0 }}
+              />
+            </View>
+            <Button
+              title="Save"
+              onPress={handleSavePhone}
+              loading={savingPhone}
+              size="small"
+              style={{ marginTop: 24 }}
+            />
           </View>
         </Card>
 

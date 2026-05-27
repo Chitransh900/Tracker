@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,7 +37,11 @@ export default function LoginScreen() {
       await signIn(email.trim(), password);
       router.replace('/(main)/dashboard');
     } catch (err) {
-      setLocalError(getErrorMessage(err.code));
+      if (!err.code) {
+        setLocalError(err.message);
+      } else {
+        setLocalError(getErrorMessage(err.code));
+      }
     } finally {
       setLoading(false);
     }
@@ -57,10 +60,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['rgba(59, 130, 246, 0.08)', 'transparent']}
-        style={styles.topGlow}
-      />
+      {/* Clean background instead of topGlow gradient */}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -73,14 +73,9 @@ export default function LoginScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoWrap}>
-              <LinearGradient
-                colors={Gradients.primary}
-                style={styles.logoGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+              <View style={styles.logoGradient}>
                 <Ionicons name="location" size={32} color="#FFF" />
-              </LinearGradient>
+              </View>
             </View>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to continue tracking</Text>
@@ -139,13 +134,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   flex: { flex: 1 },
-  topGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-  },
+  // Removed topGlow
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -165,11 +154,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   title: {
     ...Typography.heading1,

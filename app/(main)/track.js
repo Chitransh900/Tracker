@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+// removed LinearGradient
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   doc,
@@ -23,6 +23,7 @@ import {
   query,
   orderBy,
   limit,
+  getDoc,
   getDocs,
   addDoc,
   updateDoc,
@@ -218,7 +219,7 @@ const MAP_HTML = `
       if (type === 'satellite') {
         // Remove dark map inversion for satellite imagery
         document.body.classList.remove('dark-map');
-        tileLayer.setUrl('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}');
+        tileLayer.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
       } else {
         // Re-apply theme class if it was dark
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'REQUEST_THEME' }));
@@ -350,6 +351,8 @@ export default function TrackScreen() {
   const [showQuickMessage, setShowQuickMessage] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [targetPhone, setTargetPhone] = useState(null);
+  const [latestMessage, setLatestMessage] = useState(null);
 
   // New state — Geofences
   const [geofences, setGeofences] = useState([]);
@@ -423,6 +426,45 @@ export default function TrackScreen() {
 
     return () => clearTimeout(timer);
   }, [location?.latitude, location?.longitude]);
+
+  // ============================================
+  // Fetch Target Phone (Real-time)
+  // ============================================
+  useEffect(() => {
+    if (!targetId) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', targetId), (docSnap) => {
+      if (docSnap.exists()) {
+        setTargetPhone(docSnap.data().phoneNumber);
+      }
+    });
+    return unsubscribe;
+  }, [targetId]);
+
+  // ============================================
+  // Incoming Message Listener
+  // ============================================
+  useEffect(() => {
+    if (!sessionId || !user?.uid) return;
+    const q = query(
+      collection(db, 'messages'),
+      where('sessionId', '==', sessionId)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const msg = change.doc.data();
+          if (msg.receiverId === user.uid) {
+            // Only show recent messages (last 10 seconds)
+            if (!msg.createdAt || (Date.now() - msg.createdAt.toMillis() < 10000)) {
+              setLatestMessage({ text: msg.text, sender: msg.senderName });
+              setTimeout(() => setLatestMessage(null), 5000);
+            }
+          }
+        }
+      });
+    });
+    return unsubscribe;
+  }, [sessionId, user?.uid]);
 
   // ============================================
   // Weather fetch
@@ -723,6 +765,40 @@ export default function TrackScreen() {
     }
   };
 
+  const handleCallTarget = () => {
+    if (targetPhone) {
+      Linking.openURL(`tel:${targetPhone}`);
+    } else {
+      Alert.alert(
+        'No Phone Number', 
+        'The target device has not set up a phone number in their Settings. They must log in and save their number first.'
+      );
+    }
+  };
+
+  const handleGetDirections = () => {
+    if (!trackerLocation || !location) {
+      Alert.alert('Location unavailable', 'Waiting for GPS signal to calculate route.');
+      return;
+    }
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${trackerLocation.latitude},${trackerLocation.longitude}&destination=${location.latitude},${location.longitude}`;
+    Linking.openURL(url);
+  };
+
+  const handleTriggerAlarm = async () => {
+    if (!targetId) return;
+    try {
+      await addDoc(collection(db, 'commands'), {
+        targetId: targetId,
+        command: 'ALARM',
+        createdAt: serverTimestamp(),
+      });
+      Alert.alert('Alarm Triggered', 'The target device will now play a loud siren.');
+    } catch (err) {
+      console.warn('Failed to trigger alarm', err);
+    }
+  };
+
   // ============================================
   // Open Street View
   // ============================================
@@ -794,6 +870,19 @@ export default function TrackScreen() {
         onMessage={handleWebViewMessage}
       />
 
+      {/* Toast Notification for Incoming Message */}
+      {latestMessage && (
+        <View style={styles.toastContainer}>
+          <View style={styles.toastContent}>
+            <Ionicons name="chatbubble-ellipses" size={20} color={Colors.primary} />
+            <Text style={styles.toastText}>
+              <Text style={{ fontWeight: 'bold' }}>{latestMessage.sender}: </Text>
+              {latestMessage.text}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={[styles.backButton, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }]} onPress={() => router.back()}>
@@ -819,7 +908,7 @@ export default function TrackScreen() {
             <Ionicons name={theme === 'dark' ? 'sunny' : 'moon'} size={20} color={tColors.text} />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }]} onPress={toggleMapType}>
-            <Ionicons name="map" size={20} color={tColors.text} />
+            <Ionicons name={mapType === 'standard' ? 'earth' : 'map'} size={20} color={tColors.text} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }, showRoute && styles.mapControlActive]}
@@ -829,6 +918,12 @@ export default function TrackScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }]} onPress={openStreetView}>
             <Ionicons name="eye" size={20} color={tColors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }]} onPress={handleGetDirections}>
+            <Ionicons name="navigate" size={20} color={tColors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }]} onPress={handleTriggerAlarm}>
+            <Ionicons name="warning" size={20} color={Colors.danger} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.mapControlBtn, { backgroundColor: tColors.surface, borderColor: tColors.glassBorder }, geofences.length > 0 && styles.mapControlActive]}
@@ -842,26 +937,31 @@ export default function TrackScreen() {
       {/* Bottom Container (Groups FAB and Info Panel to prevent overlap) */}
       <View style={styles.bottomContainer} pointerEvents="box-none">
         {/* Quick Message FAB */}
+        {targetPhone && (
+          <TouchableOpacity
+            style={[styles.messageFab, { bottom: 100, backgroundColor: Colors.success }]}
+            onPress={handleCallTarget}
+          >
+            <View style={[styles.messageFabGradient, { backgroundColor: Colors.success }]}>
+              <Ionicons name="call" size={22} color="#FFF" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.messageFab}
           onPress={() => setShowQuickMessage(true)}
         >
-          <LinearGradient
-            colors={Gradients.accent}
-            style={styles.messageFabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
+          <View style={[styles.messageFabGradient, { backgroundColor: Colors.primary }]}>
             <Ionicons name="chatbubble" size={22} color="#FFF" />
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Info Panel */}
         {location && (
           <View style={styles.infoPanel}>
-            <LinearGradient
-              colors={tColors.panelBg}
-              style={[styles.infoPanelGradient, { borderColor: tColors.glassBorder }]}
+            <View
+              style={[styles.infoPanelGradient, { backgroundColor: tColors.surface, borderColor: tColors.border }]}
             >
               <TouchableOpacity
                 style={styles.infoPanelHandle}
@@ -952,7 +1052,7 @@ export default function TrackScreen() {
                   </View>
                 </View>
               )}
-            </LinearGradient>
+            </View>
           </View>
         )}
       </View>
@@ -1122,15 +1222,12 @@ export default function TrackScreen() {
               onPress={handleCreateGeofence}
               disabled={!geofenceName.trim()}
             >
-              <LinearGradient
-                colors={geofenceName.trim() ? Gradients.primary : [Colors.textMuted, Colors.textMuted]}
-                style={styles.createGeofenceBtnGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <View
+                style={[styles.createGeofenceBtnGradient, { backgroundColor: geofenceName.trim() ? Colors.primary : Colors.surface }]}
               >
                 <Ionicons name="shield-checkmark" size={20} color="#FFF" />
                 <Text style={styles.createGeofenceBtnText}>Create Geofence</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -1139,27 +1236,6 @@ export default function TrackScreen() {
   );
 }
 
-// Dark map style for Google Maps (unused but kept for reference)
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
-  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
-  { featureType: 'land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
-  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#023e58' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#3C7680' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#98a5be' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c6675' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#255763' }] },
-  { featureType: 'transit', elementType: 'labels.text.fill', stylers: [{ color: '#98a5be' }] },
-  { featureType: 'transit.line', elementType: 'geometry.fill', stylers: [{ color: '#283d6a' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1626' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4e6d70' }] },
-];
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1167,6 +1243,34 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  toastContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 20,
+    right: 20,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  toastContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastText: {
+    ...Typography.bodyMedium,
+    color: Colors.textPrimary,
+    marginLeft: Spacing.sm,
   },
 
   // Top bar
@@ -1326,7 +1430,7 @@ const styles = StyleSheet.create({
   weatherCondition: {
     ...Typography.caption,
     color: Colors.textSecondary,
-    flex: 1,
+    textAlign: 'center',
   },
 
   // Info grid

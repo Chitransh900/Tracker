@@ -30,7 +30,6 @@ const styles = StyleSheet.create({
   glass: {
     backgroundColor: Colors.glass,
     borderColor: Colors.glassBorder,
-    ...Shadows.md,
   },
   elevated: {
     backgroundColor: Colors.surface,

@@ -3,10 +3,12 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/theme';
+import GlobalListener from '../../components/GlobalListener';
 
 export default function MainLayout() {
   return (
-    <Tabs
+    <>
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -69,7 +71,6 @@ export default function MainLayout() {
           href: null,
         }}
       />
-      {/* Hide the geofences screen from tabs — it's accessed via navigation */}
       <Tabs.Screen
         name="geofences"
         options={{
@@ -77,5 +78,7 @@ export default function MainLayout() {
         }}
       />
     </Tabs>
+    <GlobalListener />
+    </>
   );
 }
