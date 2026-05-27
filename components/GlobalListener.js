@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Alert, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Notifications from 'expo-notifications';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,38 +18,40 @@ Notifications.setNotificationHandler({
 
 export default function GlobalListener() {
   const { user } = useAuth();
-  const [alarmSound, setAlarmSound] = useState(null);
+  // Initialize Audio
+  const alarmSound = useAudioPlayer('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
 
-  // Initialize Audio
   useEffect(() => {
-    let soundObject = null;
     (async () => {
       try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          staysActiveInBackground: true,
-          playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
+        // Request Notification Permissions
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') {
+          await Notifications.requestPermissionsAsync();
+        }
+
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: 'mixWithOthers'
         });
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg' },
-          { shouldPlay: false, isLooping: true, volume: 1.0 }
-        );
-        soundObject = sound;
-        setAlarmSound(sound);
+        
+        alarmSound.loop = true;
+        alarmSound.volume = 1.0;
+
+        // Force loop manually if native loop fails
+        alarmSound.addListener('playbackStatusUpdate', (status) => {
+          if (status.didJustFinish) {
+            alarmSound.seekTo(0);
+            alarmSound.play();
+          }
+        });
       } catch (err) {
-        console.warn('Failed to load alarm sound', err);
+        console.warn('Failed to configure audio/notifications', err);
       }
     })();
-
-    return () => {
-      if (soundObject) {
-        soundObject.unloadAsync();
-      }
-    };
-  }, []);
+  }, [alarmSound]);
 
   // Listen to Commands (Alarm)
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function GlobalListener() {
             if (Date.now() - cmd.createdAt.toMillis() < 30000) {
               try {
                 setIsAlarmPlaying(true);
-                await alarmSound.playAsync();
+                alarmSound.play();
               } catch (err) {
                 console.warn('Failed to play alarm', err);
               }
@@ -115,7 +117,7 @@ export default function GlobalListener() {
 
   const stopAlarm = async () => {
     if (alarmSound) {
-      await alarmSound.stopAsync();
+      alarmSound.pause();
       setIsAlarmPlaying(false);
     }
   };

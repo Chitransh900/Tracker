@@ -63,12 +63,13 @@
           "icon": "./assets/icon.png",
           "color": "#3B82F6"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8e43edd5-52e3-4029-9455-6e4e18c0694b"
+        "projectId": "61f51099-280f-4cb9-8007-10821dc8261b"
       }
     }
   }
