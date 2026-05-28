@@ -47,13 +47,19 @@ export default function LinkDeviceScreen() {
     setSuccess(false);
 
     try {
-      // Find target user by email
+      // Find target user by email (Try lowercase first, then exact match)
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', targetEmail.trim().toLowerCase()));
-      const snapshot = await getDocs(q);
+      let q = query(usersRef, where('email', '==', targetEmail.trim().toLowerCase()));
+      let snapshot = await getDocs(q);
 
       if (snapshot.empty) {
-        setError('No user found with this email. They need to install the app and create an account first.');
+        // Try exact match as fallback in case email was saved with uppercase letters
+        q = query(usersRef, where('email', '==', targetEmail.trim()));
+        snapshot = await getDocs(q);
+      }
+
+      if (snapshot.empty) {
+        setError('No user found with this email. Please check spelling or case.');
         setLoading(false);
         return;
       }
@@ -88,7 +94,7 @@ export default function LinkDeviceScreen() {
       await createSession(targetId, targetData);
     } catch (err) {
       console.error('Link device error:', err);
-      setError('Failed to send invite. Please try again.');
+      setError(`Failed to send invite: ${err.message}`);
     } finally {
       setLoading(false);
     }

@@ -125,6 +125,18 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.quickActionText}>Sessions</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => router.push('/(main)/all-map')}
+          >
+            <View
+              style={[styles.quickActionIcon, { backgroundColor: Colors.primary }]}
+            >
+              <Ionicons name="earth" size={24} color="#FFF" />
+            </View>
+            <Text style={styles.quickActionText}>Global Map</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Pending Invites */}

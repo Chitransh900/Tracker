@@ -335,6 +335,7 @@ export default function TrackScreen() {
   const [customMessage, setCustomMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [targetPhone, setTargetPhone] = useState(null);
+  const [targetPushToken, setTargetPushToken] = useState(null);
   const [latestMessage, setLatestMessage] = useState(null);
   const [geofences, setGeofences] = useState([]);
   const [showGeofenceModal, setShowGeofenceModal] = useState(false);
@@ -425,6 +426,7 @@ export default function TrackScreen() {
     const unsubscribe = onSnapshot(doc(db, 'users', targetId), (docSnap) => {
       if (docSnap.exists()) {
         setTargetPhone(docSnap.data().phoneNumber);
+        setTargetPushToken(docSnap.data().expoPushToken);
       }
     });
     return unsubscribe;
@@ -623,6 +625,25 @@ export default function TrackScreen() {
         read: false,
         createdAt: serverTimestamp(),
       });
+
+      if (targetPushToken) {
+        fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: targetPushToken,
+            sound: 'default',
+            title: `New Message from Tracker`,
+            body: text.trim(),
+            data: { type: 'message' },
+          }),
+        }).catch(() => {});
+      }
+
       setShowQuickMessage(false);
       setCustomMessage('');
     } catch (err) {
@@ -660,6 +681,27 @@ export default function TrackScreen() {
         command: 'ALARM',
         createdAt: serverTimestamp(),
       });
+
+      if (targetPushToken) {
+        fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: targetPushToken,
+            sound: 'default',
+            priority: 'high',
+            title: '🚨 ALARM TRIGGERED 🚨',
+            body: 'Your tracker has activated the panic alarm.',
+            data: { type: 'alarm' },
+            channelId: 'alarm-channel',
+          }),
+        }).catch(() => {});
+      }
+
       Alert.alert('Alarm Triggered', 'The target device will now play a loud siren.');
     } catch (err) {
       console.warn('Failed to trigger alarm', err);

@@ -62,6 +62,13 @@ const LocationService = {
     };
   },
 
+  // Check if actively tracking
+  async isTracking() {
+    const isForeground = !!this._foregroundSubscription;
+    const isBackground = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).catch(() => false);
+    return isForeground || isBackground;
+  },
+
   // Start foreground location tracking
   async startForegroundTracking(userId, onLocationUpdate) {
     this._currentUserId = userId;

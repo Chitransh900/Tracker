@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +19,6 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  or,
 } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../config/firebase';
@@ -35,26 +35,43 @@ export default function SessionsScreen() {
     if (!user) return;
 
     const sessionsRef = collection(db, 'trackingSessions');
-    const q = query(
-      sessionsRef,
-      or(
-        where('trackerId', '==', user.uid),
-        where('targetId', '==', user.uid)
-      )
-    );
+    
+    // We use two separate queries because Firestore 'or()' queries 
+    // often fail silently if composite indexes aren't perfectly set up.
+    const qTracker = query(sessionsRef, where('trackerId', '==', user.uid));
+    const qTarget = query(sessionsRef, where('targetId', '==', user.uid));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = [];
-      snapshot.forEach((d) => list.push({ id: d.id, ...d.data() }));
+    let trackerSessions = [];
+    let targetSessions = [];
+
+    const updateCombinedSessions = () => {
+      // Map by ID to deduplicate (though they shouldn't overlap)
+      const combinedMap = new Map();
+      [...trackerSessions, ...targetSessions].forEach(s => combinedMap.set(s.id, s));
+      
+      const list = Array.from(combinedMap.values());
       // Sort: pending first, then active, then revoked
       list.sort((a, b) => {
         const order = { pending: 0, active: 1, revoked: 2 };
         return (order[a.status] || 3) - (order[b.status] || 3);
       });
       setSessions(list);
-    });
+    };
 
-    return unsubscribe;
+    const unsubTracker = onSnapshot(qTracker, (snapshot) => {
+      trackerSessions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateCombinedSessions();
+    }, (err) => console.error("Tracker query error:", err));
+
+    const unsubTarget = onSnapshot(qTarget, (snapshot) => {
+      targetSessions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateCombinedSessions();
+    }, (err) => console.error("Target query error:", err));
+
+    return () => {
+      unsubTracker();
+      unsubTarget();
+    };
   }, [user]);
 
   const handleAccept = async (sessionId) => {
@@ -68,7 +85,23 @@ export default function SessionsScreen() {
     }
   };
 
-  const handleRevoke = (sessionId, isTracker) => {
+  const handleRevoke = async (sessionId, isTracker) => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        isTracker
+          ? 'Stop Tracking? You will no longer be able to see their location.'
+          : 'Revoke Consent? They will no longer be able to see your location.'
+      );
+      if (confirmed) {
+        try {
+          await updateDoc(doc(db, 'trackingSessions', sessionId), { status: 'revoked' });
+        } catch (err) {
+          window.alert('Failed to update session');
+        }
+      }
+      return;
+    }
+
     Alert.alert(
       isTracker ? 'Stop Tracking?' : 'Revoke Consent?',
       isTracker
@@ -93,7 +126,19 @@ export default function SessionsScreen() {
     );
   };
 
-  const handleDelete = (sessionId) => {
+  const handleDelete = async (sessionId) => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Delete Session? This cannot be undone.');
+      if (confirmed) {
+        try {
+          await deleteDoc(doc(db, 'trackingSessions', sessionId));
+        } catch (err) {
+          window.alert('Failed to delete session');
+        }
+      }
+      return;
+    }
+
     Alert.alert('Delete Session?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {

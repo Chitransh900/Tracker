@@ -39,6 +39,8 @@ export default function SettingsScreen() {
   const checkPermissions = async () => {
     const status = await LocationService.getPermissionStatus();
     setPermissions(status);
+    const active = await LocationService.isTracking();
+    setTrackingEnabled(active);
   };
 
   const handleSavePhone = async () => {
