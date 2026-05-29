@@ -64,7 +64,8 @@
           "color": "#3B82F6"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "@notifee/react-native"
     ],
     "extra": {
       "router": {},

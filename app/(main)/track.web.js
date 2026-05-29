@@ -637,6 +637,7 @@ export default function TrackScreen() {
           body: JSON.stringify({
             to: targetPushToken,
             sound: 'default',
+            priority: 'high',
             title: `New Message from Tracker`,
             body: text.trim(),
             data: { type: 'message' },
@@ -692,10 +693,7 @@ export default function TrackScreen() {
           },
           body: JSON.stringify({
             to: targetPushToken,
-            sound: 'default',
             priority: 'high',
-            title: '🚨 ALARM TRIGGERED 🚨',
-            body: 'Your tracker has activated the panic alarm.',
             data: { type: 'alarm' },
             channelId: 'alarm-channel',
           }),
@@ -1046,6 +1044,22 @@ export default function TrackScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.fieldLabel}>Custom Radius (meters)</Text>
+              <TextInput
+                style={styles.geofenceInput}
+                placeholder="Enter custom meters (e.g. 23)"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+                value={geofenceRadius ? geofenceRadius.toString() : ''}
+                onChangeText={(text) => {
+                  const val = parseInt(text.replace(/[^0-9]/g, ''), 10);
+                  setGeofenceRadius(isNaN(val) ? 0 : val);
+                }}
+              />
+            </View>
+
 
             <Text style={styles.fieldLabel}>Alert When</Text>
             <View style={styles.alertTypeOptions}>

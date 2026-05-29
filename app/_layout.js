@@ -4,6 +4,58 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../contexts/AuthContext';
 import { Colors } from '../constants/colors';
+import * as TaskManager from 'expo-task-manager';
+import * as Notifications from 'expo-notifications';
+import notifee, { AndroidImportance, AndroidCategory, AndroidVisibility } from '@notifee/react-native';
+
+const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
+
+// Define the headless background task for push notifications
+TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => {
+  if (error) {
+    console.error('Background task error', error);
+    return;
+  }
+  
+  if (data && data.notification) {
+    const payload = data.notification.request.content.data;
+    
+    if (payload && payload.type === 'alarm') {
+      try {
+        const channelId = await notifee.createChannel({
+          id: 'alarm_full_screen',
+          name: 'Critical Alarms',
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
+          sound: 'default',
+        });
+
+        await notifee.displayNotification({
+          title: '🚨 PANIC ALARM TRIGGERED 🚨',
+          body: 'Your tracker has activated the panic alarm!',
+          android: {
+            channelId,
+            category: AndroidCategory.ALARM,
+            fullScreenAction: {
+              id: 'default',
+            },
+            importance: AndroidImportance.HIGH,
+            visibility: AndroidVisibility.PUBLIC,
+            pressAction: {
+              id: 'default',
+            },
+          },
+        });
+      } catch (err) {
+        console.error('Notifee background error:', err);
+      }
+    }
+  }
+});
+
+if (Platform.OS !== 'web') {
+  Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK).catch(console.warn);
+}
 
 export default function RootLayout() {
   const [isLargeScreen, setIsLargeScreen] = useState(false);
