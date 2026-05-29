@@ -30,6 +30,9 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
           sound: 'default',
         });
 
+        // Cancel previous alarms so Android allows the new one to pop up
+        await notifee.cancelAllNotifications();
+
         await notifee.displayNotification({
           title: '🚨 PANIC ALARM TRIGGERED 🚨',
           body: 'Your tracker has activated the panic alarm!',

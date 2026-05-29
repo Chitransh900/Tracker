@@ -771,8 +771,8 @@ export default function TrackScreen() {
             sound: 'default',
             priority: 'high',
             title: `New Message from ${user.displayName || 'Tracker'}`,
-            body: text.trim(),
-            data: { type: 'message' },
+            body: `${text.trim()} (${new Date().toLocaleTimeString()})`,
+            data: { type: 'message', timestamp: Date.now() },
           }),
         }).catch(() => {});
       } else {
@@ -831,9 +831,8 @@ export default function TrackScreen() {
             to: targetPushToken,
             priority: 'high', // Critical for waking Android Doze mode
             title: '🚨 PANIC ALARM TRIGGERED 🚨',
-            body: 'Your tracker has activated the panic alarm!',
-            data: { type: 'alarm' },
-            channelId: 'alarm-channel', 
+            body: `Your tracker has activated the panic alarm! (${new Date().toLocaleTimeString()})`,
+            data: { type: 'alarm', timestamp: Date.now() }
           }),
         }).catch(() => {});
         Alert.alert('Alarm Triggered', 'The target device will now play a loud siren.');
