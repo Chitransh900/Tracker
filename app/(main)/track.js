@@ -830,6 +830,8 @@ export default function TrackScreen() {
           body: JSON.stringify({
             to: targetPushToken,
             priority: 'high', // Critical for waking Android Doze mode
+            title: '🚨 PANIC ALARM TRIGGERED 🚨',
+            body: 'Your tracker has activated the panic alarm!',
             data: { type: 'alarm' },
             channelId: 'alarm-channel', 
           }),
