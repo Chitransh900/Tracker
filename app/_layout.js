@@ -6,7 +6,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { Colors } from '../constants/colors';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
-// notifee imported conditionally to avoid web crashes
+import { displayAlarmNotification, displayMessageNotification, setupChannels } from '../notifee-helper';
 
 // =====================================================
 // CRITICAL: Import the Notifee headless background handler
@@ -17,97 +17,6 @@ import * as Notifications from 'expo-notifications';
 import '../notifee-background';
 
 const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
-
-// =====================================================
-// Conditionally load Notifee to prevent web crashes
-// =====================================================
-let notifee = null;
-let AndroidImportance, AndroidCategory, AndroidVisibility;
-
-if (Platform.OS !== 'web') {
-  const NotifeeModule = require('@notifee/react-native');
-  notifee = NotifeeModule.default;
-  AndroidImportance = NotifeeModule.AndroidImportance;
-  AndroidCategory = NotifeeModule.AndroidCategory;
-  AndroidVisibility = NotifeeModule.AndroidVisibility;
-}
-
-// =====================================================
-// Helper: Display alarm notification via Notifee
-// Used by both background task AND foreground listener
-// =====================================================
-async function displayAlarmNotification() {
-  try {
-    const channelId = await notifee.createChannel({
-      id: 'alarm_full_screen',
-      name: 'Critical Alarms',
-      importance: AndroidImportance.HIGH,
-      visibility: AndroidVisibility.PUBLIC,
-      sound: 'default',
-      vibration: true,
-      vibrationPattern: [0, 500, 200, 500, 200, 500],
-      bypassDnd: true,
-    });
-
-    // Cancel previous alarm notifications so Android allows the new one to pop up
-    await notifee.cancelAllNotifications();
-
-    await notifee.displayNotification({
-      title: '🚨 PANIC ALARM TRIGGERED 🚨',
-      body: 'Your tracker has activated the panic alarm! Tap to open.',
-      android: {
-        channelId,
-        category: AndroidCategory.ALARM,
-        fullScreenAction: {
-          id: 'default',
-        },
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        sound: 'default',
-        vibrationPattern: [0, 500, 200, 500, 200, 500],
-        pressAction: {
-          id: 'default',
-        },
-        // Keep the notification persistent until user interacts
-        ongoing: false,
-        autoCancel: true,
-      },
-    });
-  } catch (err) {
-    console.error('Notifee displayAlarmNotification error:', err);
-  }
-}
-
-// =====================================================
-// Helper: Display message notification via Notifee
-// =====================================================
-async function displayMessageNotification(title, body) {
-  try {
-    const channelId = await notifee.createChannel({
-      id: 'messages',
-      name: 'Messages',
-      importance: AndroidImportance.HIGH,
-      visibility: AndroidVisibility.PUBLIC,
-      sound: 'default',
-    });
-
-    await notifee.displayNotification({
-      title: title || 'New Message',
-      body: body || 'You have a new message',
-      android: {
-        channelId,
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        sound: 'default',
-        pressAction: {
-          id: 'default',
-        },
-      },
-    });
-  } catch (err) {
-    console.error('Notifee displayMessageNotification error:', err);
-  }
-}
 
 // =====================================================
 // Background Notification Task (Expo TaskManager)
@@ -160,26 +69,7 @@ export default function RootLayout() {
 
     // Create alarm channel on app startup so it's ready
     // before any notification arrives
-    if (notifee) {
-      notifee.createChannel({
-        id: 'alarm_full_screen',
-        name: 'Critical Alarms',
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        sound: 'default',
-        vibration: true,
-        vibrationPattern: [0, 500, 200, 500, 200, 500],
-        bypassDnd: true,
-      }).catch(console.warn);
-
-      notifee.createChannel({
-        id: 'messages',
-        name: 'Messages',
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        sound: 'default',
-      }).catch(console.warn);
-    }
+    setupChannels();
 
     // Listen for incoming notifications while the app is in the foreground
     const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
