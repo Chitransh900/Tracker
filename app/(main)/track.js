@@ -770,9 +770,11 @@ export default function TrackScreen() {
             to: targetPushToken,
             sound: 'default',
             priority: 'high',
+            channelId: 'messages',
             title: `New Message from ${user.displayName || 'Tracker'}`,
             body: `${text.trim()} (${new Date().toLocaleTimeString()})`,
             data: { type: 'message', timestamp: Date.now() },
+            _contentAvailable: true,
           }),
         }).catch(() => {});
       } else {
@@ -819,7 +821,8 @@ export default function TrackScreen() {
 
       // Send Push Notification to wake up the app and ring loudly
       if (targetPushToken) {
-        // Send high-priority data push notification to trigger Notifee background task
+        // Send high-priority push notification with alarm channel
+        // Android will show this natively even when the app is fully killed
         await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: {
@@ -829,10 +832,13 @@ export default function TrackScreen() {
           },
           body: JSON.stringify({
             to: targetPushToken,
-            priority: 'high', // Critical for waking Android Doze mode
+            sound: 'default',
+            priority: 'high',
+            channelId: 'alarm_full_screen',
             title: '🚨 PANIC ALARM TRIGGERED 🚨',
             body: `Your tracker has activated the panic alarm! (${new Date().toLocaleTimeString()})`,
-            data: { type: 'alarm', timestamp: Date.now() }
+            data: { type: 'alarm', timestamp: Date.now() },
+            _contentAvailable: true,
           }),
         }).catch(() => {});
         Alert.alert('Alarm Triggered', 'The target device will now play a loud siren.');

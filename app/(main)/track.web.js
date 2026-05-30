@@ -638,9 +638,11 @@ export default function TrackScreen() {
             to: targetPushToken,
             sound: 'default',
             priority: 'high',
+            channelId: 'messages',
             title: `New Message from Tracker`,
             body: `${text.trim()} (${new Date().toLocaleTimeString()})`,
             data: { type: 'message', timestamp: Date.now() },
+            _contentAvailable: true,
           }),
         }).catch(() => {});
       }
@@ -693,10 +695,13 @@ export default function TrackScreen() {
           },
           body: JSON.stringify({
             to: targetPushToken,
+            sound: 'default',
             priority: 'high',
+            channelId: 'alarm_full_screen',
             title: '🚨 PANIC ALARM TRIGGERED 🚨',
             body: `Your tracker has activated the panic alarm! (${new Date().toLocaleTimeString()})`,
-            data: { type: 'alarm', timestamp: Date.now() }
+            data: { type: 'alarm', timestamp: Date.now() },
+            _contentAvailable: true,
           }),
         }).catch(() => {});
       }
