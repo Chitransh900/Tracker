@@ -3,6 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Battery from 'expo-battery';
 import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BACKGROUND_LOCATION_TASK = 'BACKGROUND_LOCATION_TASK';
 const LOCATION_UPDATE_INTERVAL = 15000; // 15 seconds
@@ -21,8 +22,12 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     if (locations && locations.length > 0) {
       const location = locations[locations.length - 1]; // most recent
       try {
-        // Get current userId from stored value
-        const userId = LocationService._currentUserId;
+        // Get current userId from stored value or AsyncStorage if app was killed
+        let userId = LocationService._currentUserId;
+        if (!userId) {
+          userId = await AsyncStorage.getItem('TRACKING_USER_ID');
+        }
+        
         if (userId) {
           await LocationService.uploadLocation(userId, location);
         }
@@ -72,6 +77,7 @@ const LocationService = {
   // Start foreground location tracking
   async startForegroundTracking(userId, onLocationUpdate) {
     this._currentUserId = userId;
+    await AsyncStorage.setItem('TRACKING_USER_ID', userId);
 
     const hasPermission = await this.requestForegroundPermission();
     if (!hasPermission) {
@@ -107,6 +113,7 @@ const LocationService = {
   // Start background location tracking
   async startBackgroundTracking(userId) {
     this._currentUserId = userId;
+    await AsyncStorage.setItem('TRACKING_USER_ID', userId);
 
     const hasBackground = await this.requestBackgroundPermission();
     if (!hasBackground) {
@@ -156,6 +163,7 @@ const LocationService = {
     }
 
     this._currentUserId = null;
+    await AsyncStorage.removeItem('TRACKING_USER_ID');
   },
 
   // Upload location to Firestore

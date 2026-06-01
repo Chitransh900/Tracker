@@ -16,6 +16,13 @@ import { displayAlarmNotification, displayMessageNotification, setupChannels } f
 // =====================================================
 import '../notifee-background';
 
+// =====================================================
+// CRITICAL: Import LocationService to register the
+// background location task (TaskManager.defineTask)
+// This MUST be in the global scope so it runs in background.
+// =====================================================
+import '../services/LocationService';
+
 const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
 
 // =====================================================
